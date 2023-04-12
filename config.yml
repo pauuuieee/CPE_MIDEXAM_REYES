@@ -1,0 +1,43 @@
+--- 
+- hosts: all 
+  become: true
+  pre_tasks:
+
+  - name: Install DNF and Epel-release in CentOS server
+    yum:
+      name:
+        - epel-release 
+        - dnf
+    when: ansible_distribution == "CentOS"
+
+  - name: Update the CentOS server
+    dnf:
+      update_cache: yes
+      name: "*"
+      state: latest
+    when: ansible_distribution == "CentOS"
+
+  - name: Dpkg Configure of Ubuntu server
+    shell: 
+      dpkg --configure -a 
+    when: ansible_distribution == "Ubuntu"
+
+  - name: Update the Ubuntu server
+    apt:
+      update_cache: yes
+      update: yes
+    when: ansible_distribution == "Ubuntu"
+
+  - hosts: Ubuntu_server
+    become: true
+    roles:
+      - { role: Ubuntu_ESN } 
+      - { role: Ubuntu_IGPI }
+      - { role: Ubuntu_LampStack } 
+
+  - hosts: CentOS_server
+    become: true
+    roles: 
+      - { role: CentOS_ESN } 
+      - { role: CentOS_IGPI }
+      - { role: CentOS_LampStack }
