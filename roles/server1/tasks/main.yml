@@ -1,0 +1,112 @@
+- name: Installing Nagios Required Packages
+  tags: CentOS_packs
+  dnf:
+    name:
+      - gcc
+      - glibc
+      - glibc-common
+      - perl
+      - httpd
+      - php
+      - wget
+      - gd
+      - gd-devel
+      - make
+      - gettext
+      - automake
+      - autoconf
+      - wget
+      - openssl-devel
+      - net-snmp
+      - net-snmp-utils
+      -python-pip
+    state: latest
+
+  - name: Downloading Nagios Core
+    unarchive:
+      src: https://github.com/NagiosEnterprises/nagioscore/archive/nagios-4.4.6.tar.gz
+      dest: /tmp
+      remote_src: yes
+      mode: 0777
+      owner: root
+      group: root
+
+  - name: Intalling Nagios Core
+    shell:
+      cd /tmp/nagioscore-**
+      ./configure --with-command-group=nagcmd
+      make all
+      make install-groups-users
+      usermod -a -G nagios apache
+      make install
+      make install-daemoninit
+      make install-commandmode
+      make install-config
+      make install-webconf
+
+  - name: Downloading Nagios-Plugins
+    unarchive:
+      src: https://github.com/nagios-plugins/nagios-plugins/archive/release-2.3.3.tar.gz
+      dest: /tmp
+      remote_src: yes
+      mode: 0777
+      owner: root
+      group: root
+
+  - name: Installing Nagios Core
+    shell:
+      cd /tmp/nagioscore-**
+      ./configure --with-command-group-nagcmd
+      make all
+      make install-group-users
+      usermod -a -G nagios apache
+      make install
+      make install-daemoninit
+      make install-commandmode
+      make install-config
+      make install-webconf
+
+   - name: Downloading Nagios-Plugins
+     unarchive:
+       src: https://github.com/nagios-plugins/nagios-plugins/archive/release-2.3.3.tar.gz
+       dest: /tmp
+       remote_src: yes
+       mode: 0777
+       owner: root
+       group: root
+
+  - name: Installing Nagios-Plugins
+    shell:
+      cd /tmp/nagios-plugins*
+      ./tools/setup
+      ./configure --with-nagios-user=nagios --with-nagios-group=nagios --with-openssl
+      make
+      make install
+
+  - name: Installing Passlib
+    pip:
+      name: passlib
+
+  - name: Create User
+    community.general.htpasswd:
+      path: /usr/local/nagios/etc/htpasswd.users
+      name: admin
+      password: admin
+
+  - name: Restart Nagios Service
+    service:
+      name: nagios
+      state: restarted
+      enabled: true
+
+  - name: Restart Http Service
+    service:
+      name: httpd
+      state: restarted
+      enabled: true
+
+  - name: Restart MariaDB Service
+    service:
+      name: mariadb
+      state: restarted
+      enabled: true
