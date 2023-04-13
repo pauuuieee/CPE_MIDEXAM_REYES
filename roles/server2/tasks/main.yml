@@ -1,0 +1,47 @@
+- name: Download Influxdb Package
+  get_url:
+    url: https://repos.influxdata.com/rhel/8/x86_64/stable/influxdb-1.8.5.x86_64.rpm
+    dest: /tmp/influxdb-1.8.5.x86_64.rpm
+
+- name: Install Influxdb Package
+  yum:
+    name: /tmp/influxdb-1.8.5.x86_64.rpm
+    state: present
+
+- name: Install Influxdb
+  dnf:
+    name:
+      - influxdb
+    state: latest
+
+- name: Start Influxdb
+  service:
+    name: influxdb
+    state: restarted
+
+- name: Downlod Grafana Package
+  get_url:
+    url: https://dl.grafana.com/enterprise/release/grafana-enterprise-9.2.2-1.x86_64.rpm
+    dest: /tmp/grafana-enterprise-9.2.2-1.x86_64.rpm
+
+- name: Install Grafana Package
+  dnf:
+    name: /tmp/grafana-enterprise-9.2.2-1.x86_64.rpm
+    state: present
+
+- name: Start Grafana
+  service:
+    name: grafana-server
+    state: restarted
+
+- name: Install Promethteus pre-requisites (Snapd)
+  dnf:
+    name:
+      - snapd
+    state: latest
+
+- name: Enable Snapd
+  command: systemctl enable --now snapd.socket
+
+- name: Install Prometheus
+  command: snap install prometheus --classic

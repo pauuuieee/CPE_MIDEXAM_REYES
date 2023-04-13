@@ -1,112 +1,154 @@
-- name: Installing Nagios Required Packages
-  tags: CentOS_packs
-  dnf:
+- name: Install Pre-requisites for Elastic Stack
+  apt:
     name:
-      - gcc
-      - glibc
-      - glibc-common
-      - perl
-      - httpd
-      - php
-      - wget
-      - gd
-      - gd-devel
-      - make
-      - gettext
-      - automake
-      - autoconf
-      - wget
-      - openssl-devel
-      - net-snmp
-      - net-snmp-utils
-      -python-pip
+      - openjdk-11-jdk
+      - apt-transport-https
+      - curl
+      - gpgv
+      - gpgsm
+      - gnupg-l10n
+      - gnupg
+      - dirmngr
     state: latest
 
-  - name: Downloading Nagios Core
-    unarchive:
-      src: https://github.com/NagiosEnterprises/nagioscore/archive/nagios-4.4.6.tar.gz
-      dest: /tmp
-      remote_src: yes
-      mode: 0777
-      owner: root
-      group: root
+- name: Get PGP Keys (pre-req.continuation)
+  apt_key:
+    url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+    state: present
 
-  - name: Intalling Nagios Core
-    shell:
-      cd /tmp/nagioscore-**
-      ./configure --with-command-group=nagcmd
-      make all
-      make install-groups-users
-      usermod -a -G nagios apache
-      make install
-      make install-daemoninit
-      make install-commandmode
-      make install-config
-      make install-webconf
+- name: Install Elastic Search Source List (pre-req.continuation)
+  apt_repository:
+    repo: deb https://artifacts.elastic.co/packages/7.x/apt stable main
+    state: present
 
-  - name: Downloading Nagios-Plugins
-    unarchive:
-      src: https://github.com/nagios-plugins/nagios-plugins/archive/release-2.3.3.tar.gz
-      dest: /tmp
-      remote_src: yes
-      mode: 0777
-      owner: root
-      group: root
+- name: Install Elasticsearch (pre-req.continuation)
+  apt:
+    name: elasticsearch
+    state: latest
+    update_cache: yes
 
-  - name: Installing Nagios Core
-    shell:
-      cd /tmp/nagioscore-**
-      ./configure --with-command-group-nagcmd
-      make all
-      make install-group-users
-      usermod -a -G nagios apache
-      make install
-      make install-daemoninit
-      make install-commandmode
-      make install-config
-      make install-webconf
+- name: Configure Elasticsearch Cluster
+  lineinfile:
+    dest: /etc/elasticsearch/elasticsearch.yml
+    line: "cluster.name: demo-elk"
+    state: present
 
-   - name: Downloading Nagios-Plugins
-     unarchive:
-       src: https://github.com/nagios-plugins/nagios-plugins/archive/release-2.3.3.tar.gz
-       dest: /tmp
-       remote_src: yes
-       mode: 0777
-       owner: root
-       group: root
+- name: Configure Elasticsearch Name
+  lineinfile:
+    dest: /etc/elasticsearch/elasticsearch.yml
+    line: "node.name: elk-1"
+    state: present
 
-  - name: Installing Nagios-Plugins
-    shell:
-      cd /tmp/nagios-plugins*
-      ./tools/setup
-      ./configure --with-nagios-user=nagios --with-nagios-group=nagios --with-openssl
-      make
-      make install
+- name: Configure Elasticsearch Network Host
+  lineinfile:
+    dest: /etc/elasticsearch/elasticsearch.yml
+    line: "network.host: 0.0.0.0"
+    state: present
 
-  - name: Installing Passlib
-    pip:
-      name: passlib
+- name: Configure Elasticsearch Adding http port
+  lineinfile:
+    dest: /etc/elasticsearch/elasticsearch.yml
+    line: "http.port: 9200"
+    state: present
 
-  - name: Create User
-    community.general.htpasswd:
-      path: /usr/local/nagios/etc/htpasswd.users
-      name: admin
-      password: admin
+- name: Configure Elasticsearch Adding Discovery Type
+  lineinfile:
+    dest: /etc/elasticsearch/elasticsearch.yml
+    line: "discovery.type: single-node"
+    state: present
 
-  - name: Restart Nagios Service
-    service:
-      name: nagios
-      state: restarted
-      enabled: true
+- name: Creating empty file for startup-timeout.conf 1 of 2
+  file:
+    path: "/etc/systemd/system/elasticsearch.service.d"
+    state: directory
 
-  - name: Restart Http Service
-    service:
-      name: httpd
-      state: restarted
-      enabled: true
+- name: Creating an empty file for startup-timeout.conf 2 of 2
+  file:
+    path: "/etc/systemd/system/elasticsearch.service.d/startup-timeout.conf"
+    state: touch
 
-  - name: Restart MariaDB Service
-    service:
-      name: mariadb
-      state: restarted
-      enabled: true
+- name: Prevent systemd service start operation from timing out
+  copy:
+    dest: "/etc/systemd/system/elasticsearch.service.d/startup-timeout.conf"
+    content: |
+      [Service]
+      TimeoutStartSec=3min
+- name: Reload daemon for Elastic Search
+  systemd: daemon_reload=yes
+
+- name: Enable Elastic Search Service
+  systemd:
+    name: elasticsearch
+    enabled: yes
+    masked: no
+
+- name: Elastic Search Start Service
+  systemd: state=started name=elasticsearch
+
+- name: Install Logstash (pre-req.continuation)
+  apt:
+    name: logstash
+    state: latest
+    update_cache: yes
+
+- name: Reload daemon for Logstash
+  systemd: daemon_reload=yes
+
+- name: Enable Logstash Service
+  systemd:
+    name: logstash
+    enabled: yes
+
+- name: Logstash Start Service
+  systemd: state=started name=logstash
+
+- name: Install Kibana (pre-req.continuation)
+  apt:
+    name: kibana
+    state: latest
+    update_cache: yes
+
+- name: Configure Kibana Add Server Port
+  lineinfile:
+    dest: /etc/kibana/kibana.yml
+    line: "server.port: 5601"
+    state: present
+
+- name: Configure Kibana Add Server Host
+  lineinfile:
+    dest: /etc/kibana/kibana.yml
+    line: 'server.host: "0.0.0.0"'
+    state: present
+
+- name: Configure Kibana Add Server Name
+  lineinfile:
+    dest: /etc/kibana/kibana.yml
+    line: 'server.name: "demo-kibana"'
+    state: present
+
+- name: Configure Kibana Add Elastic Search Host
+  lineinfile:
+    dest: /etc/kibana/kibana.yml
+    line: 'elasticsearch.hosts: ["http://0.0.0.0:9200"]'
+    state: present
+
+- name: Reload daemon for Kibana
+  systemd: daemon_reload=yes
+
+- name: Enable Kibana Service
+  systemd:
+    name: kibana
+    enabled: yes
+
+- name: Start Elasticsearch service
+  shell: systemctl start elasticsearch
+
+- name: Start Kibana
+  shell: systemctl start kibana
+
+- name: Install Nagios
+  apt:
+    name:
+      - nagios4
+    state: latest
+    update_cache: yes

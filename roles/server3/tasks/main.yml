@@ -1,0 +1,15 @@
+- name: Install Lamp Stack pre-requisites (Apache, Php, Mariadb)
+  tags: apache,apache2,ubuntu
+  apt:
+    name:
+      - apache2
+      - libapache2-mod-php
+      - mariadb-server
+    state: latest
+    update_cache: yes
+
+- name: Enable Mariadb
+  service:
+    name: mariadb
+    state: restarted
+    enabled: true
